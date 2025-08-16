@@ -1,0 +1,42 @@
+// Display variation on the cart page as a seperate line item instead of combined one long product name
+add_filter('woocommerce_cart_item_name', 'bs_clean_cart_product_title', 10, 3);
+function bs_clean_cart_product_title($title, $cart_item, $cart_item_key) {
+    $product = $cart_item['data'];
+    $product_permalink = $product->is_visible() ? $product->get_permalink($cart_item) : '';
+
+    // Get parent title if it's a variation
+    if ($product->is_type('variation')) {
+        $parent_product = wc_get_product($product->get_parent_id());
+        $parent_title = $parent_product ? $parent_product->get_name() : $product->get_name();
+    } else {
+        $parent_title = $product->get_name();
+    }
+
+    // Link the parent title
+    $formatted_title = empty($product_permalink)
+        ? esc_html($parent_title)
+        : sprintf('<a href="%s">%s</a>', esc_url($product_permalink), esc_html($parent_title));
+
+    // Handle variations (exclude "pa_locations")
+    if ($product->is_type('variation')) {
+        $attributes = $product->get_variation_attributes();
+
+        if (isset($attributes['attribute_pa_locations'])) {
+            unset($attributes['attribute_pa_locations']);
+        }
+
+        $formatted_attributes = [];
+        foreach ($attributes as $key => $value) {
+            if (!empty($value)) {
+                $term = wc_attribute_label($value) ?: ucfirst($value);
+                $formatted_attributes[] = esc_html($term);
+            }
+        }
+
+        if (!empty($formatted_attributes)) {
+            $formatted_title .= '<br><small class="product-variation">' . implode(', ', $formatted_attributes) . '</small>';
+        }
+    }
+
+    return $formatted_title;
+}
